@@ -1,5 +1,5 @@
 /*********************************************************************/
-// gcc -O1 -fopenmp -o test_omp_for test_omp_for.c -lrt -lm
+// gcc -O1 -fopenmp -o FOR_TEST test_omp_for.c -lrt -lm
 // export NUM_OMP_THREADS=4
 //
 // 3 functions, all variations of simple FOR loop program with
@@ -17,7 +17,7 @@
 #include <omp.h>
 
 #define GIG 1000000000
-#define CPG 2.0           // Cycles per GHz -- Adjust to your computer
+#define CPG 2.9           // Cycles per GHz -- Adjust to your computer
 
 #define BASE  0
 #define ITERS 20
