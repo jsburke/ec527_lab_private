@@ -40,40 +40,47 @@ int main(int argc, char *argv[])
 
   long int i, j, k;
   long int time_sec, time_ns;
+  char str[] = "Hello World!";
 
   printf("\n Hello World -- Test OMP \n");
 
   omp_set_num_threads(4);
 
-#pragma omp parallel
-#pragma omp sections
-  {
-    //    printf("\n");
-    //#pragma omp section
-    printf("H");
-#pragma omp section
-    printf("e");
-#pragma omp section
-    printf("l");
-#pragma omp section
-    printf("l");
-#pragma omp section
-    printf("o");
-#pragma omp section
-    printf(" ");
-#pragma omp section
-    printf("W");
-#pragma omp section
-    printf("o");
-#pragma omp section
-    printf("r");
-#pragma omp section
-    printf("l");
-#pragma omp section
-    printf("d");
-#pragma omp section
-    printf("!");
-  }
+#pragma omp parallel for ordered
+for (i = 0; i < 12; i++) {
+    #pragma omp ordered
+    printf("%c", str[i]);
+}
+
+// #pragma omp parallel
+// #pragma omp sections
+//   {
+//     //    printf("\n");
+//     //#pragma omp section
+//     printf("H");
+// #pragma omp section
+//     printf("e");
+// #pragma omp section
+//     printf("l");
+// #pragma omp section
+//     printf("l");
+// #pragma omp section
+//     printf("o");
+// #pragma omp section
+//     printf(" ");
+// #pragma omp section
+//     printf("W");
+// #pragma omp section
+//     printf("o");
+// #pragma omp section
+//     printf("r");
+// #pragma omp section
+//     printf("l");
+// #pragma omp section
+//     printf("d");
+// #pragma omp section
+//     printf("!");
+//   }
 
   printf("\n");
 
