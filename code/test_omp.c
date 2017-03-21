@@ -52,36 +52,6 @@ for (i = 0; i < 12; i++) {
     printf("%c", str[i]);
 }
 
-// #pragma omp parallel
-// #pragma omp sections
-//   {
-//     //    printf("\n");
-//     //#pragma omp section
-//     printf("H");
-// #pragma omp section
-//     printf("e");
-// #pragma omp section
-//     printf("l");
-// #pragma omp section
-//     printf("l");
-// #pragma omp section
-//     printf("o");
-// #pragma omp section
-//     printf(" ");
-// #pragma omp section
-//     printf("W");
-// #pragma omp section
-//     printf("o");
-// #pragma omp section
-//     printf("r");
-// #pragma omp section
-//     printf("l");
-// #pragma omp section
-//     printf("d");
-// #pragma omp section
-//     printf("!");
-//   }
-
   printf("\n");
 
   return 0;  
