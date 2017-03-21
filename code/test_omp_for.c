@@ -20,15 +20,17 @@
 #define CPG 2.9           // Cycles per GHz -- Adjust to your computer
 double  CPS = 2.9e9;
 
-#define BASE  0
-#define ITERS 20
-#define DELTA 12
+// #define BASE  0
+// #define ITERS 20
+// #define DELTA 12
 
 #define OPTIONS 6
 #define IDENT 0
 
 #define INIT_LOW -10.0
 #define INIT_HIGH 10.0
+
+#define FILE_PREFIX ((const unsigned char*) "FOR_OMP_")
 
 typedef long int data_t;
 
@@ -74,6 +76,35 @@ double measure_cps(void);
 /*********************************************************************/
 int main(int argc, char *argv[])
 {
+  // handle command line
+  int BASE, DELTA, ITERS;
+
+  if(argc != 4)
+  {
+    printf("must have four arguments\n");
+    return 0;
+  }
+
+  BASE   = strtol(argv[1], NULL, 10);
+  DELTA  = strtol(argv[2], NULL, 10);
+  ITERS  = strtol(argv[3], NULL, 10);
+  
+  if(BASE < 0) {
+    printf("BASE must be non-negative\n");
+    return 0;
+  }
+
+  if(DELTA <= 0) {
+    printf("DELTA must be at least one\n");
+    return 0;
+  }
+
+  if(ITERS <= 0) {
+    printf("ITERS must be at least one\n");
+    return 0;
+  }
+  
+
   int OPTION;
   struct timespec diff(struct timespec start, struct timespec end);
   struct timespec time1, time2;
@@ -83,9 +114,17 @@ int main(int argc, char *argv[])
   long int time_sec, time_ns;
   long int MAXSIZE = BASE+(ITERS+1)*DELTA;
 
-  printf("\n Hello World -- Test OMP \n");
+  char filename[255] = {0};
+  FILE *fp;
 
-  // declare and initialize the matrix structure
+  sprintf(filename,"%sB%d_D%d_I%d.csv", FILE_PREFIX, BASE, DELTA, ITERS);
+  printf("Current File: %s\n", filename);
+
+  ////////////////////////////////////////////////////
+  //
+  //  Begin tests
+  //
+  ////////////////////////////////////////////////////
   matrix_ptr a0 = new_matrix(MAXSIZE);
   init_matrix_rand(a0, MAXSIZE);
   matrix_ptr b0 = new_matrix(MAXSIZE);
@@ -103,7 +142,7 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &time1);
     omp_cb_bl(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
-    time_stamp[OPTION][i] = diff(time1,time2);
+    time_stamp[OPTION][i] = ts_diff(time1,time2);
     //printf("\niter = %d", i);
   }
 
@@ -115,7 +154,7 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &time1);
     omp_cb(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
-    time_stamp[OPTION][i] = diff(time1,time2);
+    time_stamp[OPTION][i] = ts_diff(time1,time2);
     //    printf("\niter = %d", i);
   }
   
@@ -127,7 +166,7 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &time1);
     omp_mb_bl(a0,b0,c0,d0);
     clock_gettime(CLOCK_REALTIME, &time2);
-    time_stamp[OPTION][i] = diff(time1,time2);
+    time_stamp[OPTION][i] = ts_diff(time1,time2);
     //    printf("\niter = %d", i);
   }
 
@@ -139,7 +178,7 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &time1);
     omp_mb(a0,b0,c0,d0);
     clock_gettime(CLOCK_REALTIME, &time2);
-    time_stamp[OPTION][i] = diff(time1,time2);
+    time_stamp[OPTION][i] = ts_diff(time1,time2);
     //    printf("\niter = %d", i);
   }
   
@@ -151,7 +190,7 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &time1);
     omp_ob_bl(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
-    time_stamp[OPTION][i] = diff(time1,time2);
+    time_stamp[OPTION][i] = ts_diff(time1,time2);
     //    printf("\niter = %d", i);
   }
 
@@ -163,21 +202,28 @@ int main(int argc, char *argv[])
     clock_gettime(CLOCK_REALTIME, &time1);
     omp_ob(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
-    time_stamp[OPTION][i] = diff(time1,time2);
+    time_stamp[OPTION][i] = ts_diff(time1,time2);
     //    printf("\niter = %d", i);
   }
   
-  printf("\nlength, l^2, ijk, kij, jki");
+  ////////////////////////////////////////////////////////////////
+  //
+  //  Write Files
+  //
+  ////////////////////////////////////////////////////////////////
+
+  fp = fopen(filename,"w");
+  fprintf(fp, "\nlength, compute base, OMP compute, Memory Base, OMP Memory, Overhead base, OMP overhead");
+
   for (i = 0; i < ITERS; i++) {
-    printf("\n%ld, ", BASE+(i+1)*DELTA);
+    fprintf(fp, "\n%ld, ", BASE+(i+1)*DELTA);
     for (j = 0; j < OPTIONS; j++) {
-      if (j != 0) printf(", ");
-      printf("%ld", (long int)((double)(CPG)*(double)
+      if (j != 0) fprintf(fp, ", ");
+      fprintf(fp, "%ld", (long int)((double)(CPG)*(double)
       	 (GIG * time_stamp[j][i].tv_sec + time_stamp[j][i].tv_nsec)));
     }
   }
 
-  printf("\n");
   return 0; 
 }/* end main */
 
