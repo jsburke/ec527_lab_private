@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
   ////////////////////////////////////////////////////////////////
 
   fp = fopen(filename,"w");
-  fprintf(fp, "\nlength, compute base, OMP compute, Memory Base, OMP Memory, Overhead base, OMP overhead");
+  fprintf(fp, "length, compute base, OMP compute, Memory Base, OMP Memory, Overhead base, OMP overhead");
 
   for (i = 0; i < ITERS; i++) {
     fprintf(fp, "\n%ld, ", BASE+(i+1)*DELTA);
@@ -223,7 +223,8 @@ int main(int argc, char *argv[])
       	 (GIG * time_stamp[j][i].tv_sec + time_stamp[j][i].tv_nsec)));
     }
   }
-
+  fprintf(fp, "\n");
+  fclose(fp);
   return 0; 
 }/* end main */
 
