@@ -31,3 +31,8 @@
 # Debug files
 *.dSYM/
 *.su
+
+#LaTeX related
+*.aux
+*.log
+*.synctex.gz
