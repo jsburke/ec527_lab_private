@@ -27,7 +27,12 @@ For operations that are computationally intensive or bound by memory access, it 
 \end{figure}
 
 \paragraph{}
-Generally, an Open MP Parallel section is going to incur about 10 to 100 $\mu$s of overhead.
+Generally, an Open MP Parallel section is going to incur about 10 to 100 $\mu$s of overhead.  It's a bit easier to see this in certain situations in smaller arrays where parallelism isn't as immediately useful.  However, once out of this range for this kind of workload the parallelism has significant benefit.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[scale=0.3]{part2small}
+\end{figure}
 
 \section{Part Three -- Matrix Multiply}
 
