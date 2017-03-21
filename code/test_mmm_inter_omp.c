@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
   ////////////////////////////////////////////////
 
   fp = fopen(filename,"w");
-  fprintf(fp, "length, ijk, kij, jki");
+  fprintf(fp, "length, ijk, ijk omp, kij, kij omp");
 
   for (i = 0; i < ITERS; i++) {
     fprintf(fp, "\n%lu, ", BASE+(i+1)*DELTA);
