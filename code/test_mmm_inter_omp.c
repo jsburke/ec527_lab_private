@@ -1,5 +1,5 @@
 /************************************************************************/
-// gcc -O1 -fopenmp -g -o test_mmm_inter_omp test_mmm_inter_omp.c -lrt -fno-stack-protector
+// gcc -O1 -fopenmp -g -o OMP_MMM test_mmm_inter_omp.c -lrt -fno-stack-protector
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,13 +9,16 @@
 
 #define GIG 1000000000
 #define CPG 2.0           // Cycles per GHz -- Adjust to your computer
+double CPS = 2.9e9;
 
-#define BASE  0
-#define ITERS 10
-#define DELTA 96
+// #define BASE  0
+// #define ITERS 10
+// #define DELTA 96
 
-#define OPTIONS 1
+#define OPTIONS 4
 #define IDENT 0
+
+#define FILE_PREFIX ((const unsigned char*) "MMM_OMP_")
 
 typedef float data_t;
 
@@ -24,33 +27,91 @@ typedef struct {
   long int len;
   data_t *data;
 } matrix_rec, *matrix_ptr;
+
+//  Matrix functions
+
+int clock_gettime(clockid_t clk_id, struct timespec *tp);
+matrix_ptr new_matrix(long int len);
+int set_matrix_length(matrix_ptr m, long int index);
+long int get_matrix_length(matrix_ptr m);
+int init_matrix(matrix_ptr m, long int len);
+int zero_matrix(matrix_ptr m, long int len);
+void mmm_ijk(matrix_ptr a, matrix_ptr b, matrix_ptr c);
+void mmm_ijk_omp(matrix_ptr a, matrix_ptr b, matrix_ptr c);
+void mmm_kij(matrix_ptr a, matrix_ptr b, matrix_ptr c);
+void mmm_kij_omp(matrix_ptr a, matrix_ptr b, matrix_ptr c);
+void mmm_jki(matrix_ptr a, matrix_ptr b, matrix_ptr c);
+void free_memory(void);
+
+/////////////////  Time related  //////////////////////////////
+
+//rdtsc related
+typedef union {
+  unsigned long long int64;
+  struct {unsigned int lo, hi;} int32;
+} mcps_tctr;
+
+#define MCPS_RDTSC(cpu_c) __asm__ __volatile__ ("rdtsc" : \
+                     "=a" ((cpu_c).int32.lo), "=d"((cpu_c).int32.hi))
+
+int clock_gettime(clockid_t clk_id, struct timespec *tp);
+struct timespec diff(struct timespec start, struct timespec end);
+double ts_sec(struct timespec ts);
+struct timespec ts_diff(struct timespec start, struct timespec end);
+double measure_cps(void);
+
+/*********************************************************************/
+
 /************************************************************************/
 int main(int argc, char *argv[])
 {
+  // handle command line
+  int BASE, DELTA, ITERS;
+
+  if(argc != 4)
+  {
+    printf("must have four arguments\n");
+    return 0;
+  }
+
+  BASE   = strtol(argv[1], NULL, 10);
+  DELTA  = strtol(argv[2], NULL, 10);
+  ITERS  = strtol(argv[3], NULL, 10);
+  
+  if(BASE < 0) {
+    printf("BASE must be non-negative\n");
+    return 0;
+  }
+
+  if(DELTA <= 0) {
+    printf("DELTA must be at least one\n");
+    return 0;
+  }
+
+  if(ITERS <= 0) {
+    printf("ITERS must be at least one\n");
+    return 0;
+  }
+
   int OPTION;
-  struct timespec diff(struct timespec start, struct timespec end);
   struct timespec time1, time2;
   struct timespec time_stamp[OPTIONS][ITERS+1];
-  int clock_gettime(clockid_t clk_id, struct timespec *tp);
-  matrix_ptr new_matrix(long int len);
-  int set_matrix_length(matrix_ptr m, long int index);
-  long int get_matrix_length(matrix_ptr m);
-  int init_matrix(matrix_ptr m, long int len);
-  int zero_matrix(matrix_ptr m, long int len);
-  void mmm_ijk(matrix_ptr a, matrix_ptr b, matrix_ptr c);
-  void mmm_ijk_omp(matrix_ptr a, matrix_ptr b, matrix_ptr c);
-  void mmm_kij(matrix_ptr a, matrix_ptr b, matrix_ptr c);
-  void mmm_kij_omp(matrix_ptr a, matrix_ptr b, matrix_ptr c);
-  void mmm_jki(matrix_ptr a, matrix_ptr b, matrix_ptr c);
-  void free_memory(void);
 
   long int i, j, k;
   long int time_sec, time_ns;
   long int MAXSIZE = BASE+(ITERS+1)*DELTA;
 
-  printf("\n Hello World -- MMM \n");
+  char filename[255] = {0};
+  FILE *fp;
 
-  // declare and initialize the matrix structure
+  sprintf(filename,"%sB%d_D%d_I%d.csv", FILE_PREFIX, BASE, DELTA, ITERS);
+  printf("Current File: %s\n", filename);
+
+  ////////////////////////////////////////////////
+  //
+  //  Begin Tests
+  //
+  ////////////////////////////////////////////////
   matrix_ptr a0 = new_matrix(MAXSIZE);
   init_matrix(a0, MAXSIZE);
   matrix_ptr b0 = new_matrix(MAXSIZE);
@@ -67,7 +128,7 @@ int main(int argc, char *argv[])
     mmm_ijk(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
     time_stamp[OPTION][i] = diff(time1,time2);
-    printf("\niter = %lu", i);
+    //printf("\niter = %lu", i);
   }
    
   OPTION++;
@@ -79,7 +140,7 @@ int main(int argc, char *argv[])
     mmm_ijk_omp(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
     time_stamp[OPTION][i] = diff(time1,time2);
-    printf("\niter = %lu", i);
+    //printf("\niter = %lu", i);
   }
  
   OPTION++;
@@ -91,7 +152,7 @@ int main(int argc, char *argv[])
     mmm_kij(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
     time_stamp[OPTION][i] = diff(time1,time2);
-    printf("\niter = %lu", i);
+    //printf("\niter = %lu", i);
   }
 
   OPTION++;
@@ -103,20 +164,28 @@ int main(int argc, char *argv[])
     mmm_kij_omp(a0,b0,c0);
     clock_gettime(CLOCK_REALTIME, &time2);
     time_stamp[OPTION][i] = diff(time1,time2);
-    printf("\niter = %lu", i);
+    //printf("\niter = %lu", i);
   }
 
-  printf("\nlength, ijk, kij, jki");
+  ////////////////////////////////////////////////
+  //
+  //  Write results
+  //
+  ////////////////////////////////////////////////
+
+  fp = fopen(filename,"w");
+  fprintf(fp, "length, ijk, kij, jki");
+
   for (i = 0; i < ITERS; i++) {
-    printf("\n%lu, ", BASE+(i+1)*DELTA);
+    fprintf(fp, "\n%lu, ", BASE+(i+1)*DELTA);
     for (j = 0; j < OPTIONS; j++) {
-      if (j != 0) printf(", ");
-      printf("%ld", (long int)((double)(CPG)*(double)
+      if (j != 0) fprintf(fp, ", ");
+      fprintf(fp, "%ld", (long int)((double)(CPG)*(double)
 		 (GIG * time_stamp[j][i].tv_sec + time_stamp[j][i].tv_nsec)));
     }
   }
 
-  printf("\n");
+  fprintf(fp, "\n");
   return 0;
 }/* end main */
 
