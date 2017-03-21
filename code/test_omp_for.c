@@ -18,6 +18,7 @@
 
 #define GIG 1000000000
 #define CPG 2.9           // Cycles per GHz -- Adjust to your computer
+double  CPS = 2.9e9;
 
 #define BASE  0
 #define ITERS 20
@@ -37,6 +38,39 @@ typedef struct {
   data_t *data;
 } matrix_rec, *matrix_ptr;
 
+/////////////////  Vector functions  //////////////////////////
+
+matrix_ptr new_matrix(long int len);
+int set_matrix_length(matrix_ptr m, long int index);
+long int get_matrix_length(matrix_ptr m);
+int init_matrix(matrix_ptr m, long int len);
+int zero_matrix(matrix_ptr m, long int len);
+void omp_cb_bl(matrix_ptr a, matrix_ptr b, matrix_ptr c); // comp bound
+void omp_cb(matrix_ptr a, matrix_ptr b, matrix_ptr c);
+void omp_mb_bl(matrix_ptr a, matrix_ptr b, matrix_ptr c, matrix_ptr d); // mem bound
+void omp_mb(matrix_ptr a, matrix_ptr b, matrix_ptr c, matrix_ptr d);
+void omp_ob_bl(matrix_ptr a, matrix_ptr b, matrix_ptr c); // overhead bound
+void omp_ob(matrix_ptr a, matrix_ptr b, matrix_ptr c);
+int init_matrix_rand(matrix_ptr m, long int len);
+int init_matrix_rand_ptr(matrix_ptr m, long int len);
+
+/////////////////  Time related  //////////////////////////////
+
+//rdtsc related
+typedef union {
+  unsigned long long int64;
+  struct {unsigned int lo, hi;} int32;
+} mcps_tctr;
+
+#define MCPS_RDTSC(cpu_c) __asm__ __volatile__ ("rdtsc" : \
+                     "=a" ((cpu_c).int32.lo), "=d"((cpu_c).int32.hi))
+
+int clock_gettime(clockid_t clk_id, struct timespec *tp);
+struct timespec diff(struct timespec start, struct timespec end);
+double ts_sec(struct timespec ts);
+struct timespec ts_diff(struct timespec start, struct timespec end);
+double measure_cps(void);
+
 /*********************************************************************/
 int main(int argc, char *argv[])
 {
@@ -44,19 +78,6 @@ int main(int argc, char *argv[])
   struct timespec diff(struct timespec start, struct timespec end);
   struct timespec time1, time2;
   struct timespec time_stamp[OPTIONS][ITERS+1];
-  matrix_ptr new_matrix(long int len);
-  int set_matrix_length(matrix_ptr m, long int index);
-  long int get_matrix_length(matrix_ptr m);
-  int init_matrix(matrix_ptr m, long int len);
-  int zero_matrix(matrix_ptr m, long int len);
-  void omp_cb_bl(matrix_ptr a, matrix_ptr b, matrix_ptr c); // comp bound
-  void omp_cb(matrix_ptr a, matrix_ptr b, matrix_ptr c);
-  void omp_mb_bl(matrix_ptr a, matrix_ptr b, matrix_ptr c, matrix_ptr d); // mem bound
-  void omp_mb(matrix_ptr a, matrix_ptr b, matrix_ptr c, matrix_ptr d);
-  void omp_ob_bl(matrix_ptr a, matrix_ptr b, matrix_ptr c); // overhead bound
-  void omp_ob(matrix_ptr a, matrix_ptr b, matrix_ptr c);
-  int init_matrix_rand(matrix_ptr m, long int len);
-  int init_matrix_rand_ptr(matrix_ptr m, long int len);
 
   long int i, j, k;
   long int time_sec, time_ns;
@@ -159,6 +180,94 @@ int main(int argc, char *argv[])
   printf("\n");
   return 0; 
 }/* end main */
+
+/////////////////////////////  Timing related  ///////////////////////////////
+
+double ts_sec(struct timespec ts)
+{
+  return ((double)(ts.tv_sec)) + ((double)(ts.tv_nsec))/1.0e9;
+}
+
+/* ---------------------------------------------------------------------------
+| Make the CPU busy, and measure CPS (cycles per second).
+|
+| Explanation:
+| If tests are very fast, they can run so quickly that the SpeedStep control
+| (in kernel and/or on-chip) doesn't notice in time, and the first few tests
+| might finish while the CPU is still in its sleep state (about 800 MHz,
+| judging from my measurements)
+|   A simple way to get around this is to run some kind of busy-loop that
+| forces the OS and/or CPU to notice it needs to go to full clock speed.
+| We print out the results of the computation so the loop won't get optimised
+| away.
+|
+| Copy this code into other programs as desired. It provides three entry
+| points:
+|
+| double ts_sec(ts): converts a timespec into seconds
+| timespec ts_diff(ts1, ts2): computes interval between two timespecs
+| measure_cps(): Does the busy loop and prints out measured CPS (cycles/sec)
+--------------------------------------------------------------------------- */
+
+struct timespec ts_diff(struct timespec start, struct timespec end)
+{
+  struct timespec temp;
+  if ((end.tv_nsec-start.tv_nsec)<0) {
+    temp.tv_sec = end.tv_sec-start.tv_sec-1;
+    temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+  } else {
+    temp.tv_sec = end.tv_sec-start.tv_sec;
+    temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+  }
+  return temp;
+}
+
+double measure_cps()
+{
+  struct timespec cal_start, cal_end;
+  mcps_tctr tsc_start, tsc_end;
+  double total_time;
+  double total_cycles;
+  /* We perform a chaotic iteration and print the result, to defeat
+     compiler optimisation */
+  double chaosC = -1.8464323952913974; double z = 0.0;
+  long int i, ilim, j;
+
+  /* Do it twice and throw away results from the first time; this ensures the
+   * OS and CPU will notice it's busy and set the clock speed. */
+  for(j=0; j<2; j++) {
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cal_start);
+    MCPS_RDTSC(tsc_start);
+    ilim = 50*1000*1000;
+    for (i=0; i<ilim; i++)
+      z = z * z + chaosC;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cal_end);
+    MCPS_RDTSC(tsc_end);
+  }
+
+  total_time = ts_sec(ts_diff(cal_start, cal_end));
+  total_cycles = (double)(tsc_end.int64-tsc_start.int64);
+  CPS = total_cycles / total_time;
+  printf("z == %f, CPS == %g\n", z, CPS);
+
+  return CPS;
+}
+/* ---------------------------------------------------------------------------
+| End of measure_cps code
+--------------------------------------------------------------------------- */
+
+struct timespec diff(struct timespec start, struct timespec end)
+{
+  struct timespec temp;
+  if ((end.tv_nsec-start.tv_nsec)<0) {
+    temp.tv_sec = end.tv_sec-start.tv_sec-1;
+    temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+  } else {
+    temp.tv_sec = end.tv_sec-start.tv_sec;
+    temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+  }
+  return temp;
+}
 
 /**********************************************/
 
@@ -263,19 +372,6 @@ data_t *get_matrix_start(matrix_ptr m)
 }
 
 /*************************************************/
-
-struct timespec diff(struct timespec start, struct timespec end)
-{
-  struct timespec temp;
-  if ((end.tv_nsec-start.tv_nsec)<0) {
-    temp.tv_sec = end.tv_sec-start.tv_sec-1;
-    temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
-  } else {
-    temp.tv_sec = end.tv_sec-start.tv_sec;
-    temp.tv_nsec = end.tv_nsec-start.tv_nsec;
-  }
-  return temp;
-}
 
 double fRand(double fMin, double fMax)
 {
