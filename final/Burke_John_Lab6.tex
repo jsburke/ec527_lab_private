@@ -63,15 +63,35 @@ Generally, an Open MP Parallel section is going to incur about 10 to 100 $\mu$s 
 	\begin{figure}[h!]
 	\centering
 	\caption{Comparing Matrix Multiply with index variables shared}
-	\includegraphics[scale=0.5]{part3b}
+	\includegraphics[scale=0.4]{part3b}
 	\end{figure}
 	
 	\paragraph{}
 	The most stark change is that \texttt{kij} in Open MP now does miserably when with it's total time inflating very quickly.  \texttt{ijk} maintains decent performance in this range, but still this causes the parallel versions to perform worse than the serial baselines.
 	
 	\subsection{Part C -- Moving the Parallel Sections}
+	\paragraph{}	
+	Normally for an operation like matrix multiply, it makes sense to parallelize every iterative element since each loop in it can be safely parallelized, but in this exercize we set the parallelization on only the inner loops with the following results.
 	
+	\begin{figure}[h!]
+	\centering
+	\begin{subfigure}{.4\textwidth}
+  		\centering
+  		\includegraphics[width=\linewidth]{part3c_one}
+  		\caption{Parallelize first inner loop}
+	\end{subfigure}%
+	\begin{subfigure}{.4\textwidth}
+  		\centering
+  		\includegraphics[width=\linewidth]{part3c_one}
+  		\caption{Parallelize innermost loop}
+	\end{subfigure}	
+	\caption{Behavior when shifting what is parallelized}
+	\end{figure}
 	
+	\paragraph{}
+	add my info here
+	
+\pagebreak		
 \section{Part Four -- Open MP with Real Programs}	
 
 	\subsection{Part A -- SOR}
