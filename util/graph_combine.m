@@ -27,7 +27,7 @@ for i = 2:num_cols
     end
     
     %  Where the plotting actually happens
-    cur_plot = plot(x_axis, data(:,i), plot_feature);
+    cur_plot = plot(x_axis, log(data(:,i)), plot_feature);
     cur_leg  = legend_names(i-1);
     
     if color_index == color_len
