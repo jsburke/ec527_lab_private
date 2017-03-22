@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////////////////
 //
-//  gcc -O1 -fopenmp -g -o SOR SOR.c -lrt -lm -fno-stack-protector
+//  gcc -O1 -fopenmp -g -o SOR_MMM SOR_MMM.c -lm -fno-stack-protector -lrt
 //
 
 #include <stdio.h>
@@ -14,12 +14,12 @@
 double CPS 		  = 2.9e9;
 double NO_THREADS = 0;
 
-#define OPTIONS 1
+#define OPTIONS 2
 double OMEGA;
 
 typedef double data_t;
 
-#define FILE_PREFIX ((const unsigned char*) "SOR_OMP_")
+#define FILE_PREFIX ((const unsigned char*) "SOR_OMP_MMM_")
 
 //  defines for bounding values in array
 #define MINVAL 0.00
@@ -42,7 +42,7 @@ int init_vector_rand(vec_ptr v, long int len);
 int print_vector(vec_ptr v);
 
 double fRand(double fMin, double fMax);
-/////////////////  Time related  //////////////////////////////
+///////////// Timing related  /////////////////////////////////////////
 
 //rdtsc related
 typedef union {
@@ -59,7 +59,11 @@ double ts_sec(struct timespec ts);
 struct timespec ts_diff(struct timespec start, struct timespec end);
 double measure_cps(void);
 
-///////////////////////////////////////////////////////////////////////////////////////
+////////////////  SOR Functions ///////////////////////////////////
+double omega_calc(int elements);
+
+void SOR_basic(vec_ptr vec, int *iterations);
+void SOR_red_black(vec_ptr vec, int *iterations);
 
 int main(int argc, char *argv[])
 {
@@ -72,9 +76,9 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  BASE   	 = strtol(argv[1], NULL, 10);
-  DELTA  	 = strtol(argv[2], NULL, 10);
-  ITERS  	 = strtol(argv[3], NULL, 10);
+  BASE   	   = strtol(argv[1], NULL, 10);
+  DELTA  	   = strtol(argv[2], NULL, 10);
+  ITERS  	   = strtol(argv[3], NULL, 10);
   NO_THREADS = strtol(argv[4], NULL, 10);
   
   if(BASE <= 0) {
@@ -98,10 +102,86 @@ int main(int argc, char *argv[])
   	return 0;
   }
 
+  //  set up for measurement
+  struct timespec time1, time2;
+  struct timespec time_stamp[OPTIONS][ITERS+1];
+  int its[OPTIONS][ITERS+1];
+  int convergence[OPTIONS][ITERS+1];
+  int *iterations;
+
+  long int i, j, k;
+  long int time_sec, time_ns;
+  long int MAXSIZE = BASE+(ITERS+1)*DELTA;
+
+  //set up file output
+  char filename[255] = {0};
+  FILE *fp;
+
+  sprintf(filename,"%sB%d_D%d_I%d.csv", FILE_PREFIX, BASE, DELTA, ITERS);
+  printf("Current File: %s\n", filename);
+
+  // declare and initialize the vector structure
+  vec_ptr v0 = new_vec(MAXSIZE);
+  iterations = (int *) malloc(sizeof(int));
+
+  ///////////////////////////////////////
+  //
+  // Begin testing
+  //
+  ////////////////////////////////////////
+
+  measure_cps();
+  int OPTION = 0;
+  int ASIZE;
+  for(i = 0; i < ITERS; i++)
+  {
+    ASIZE = BASE+(i+1)*DELTA;
+    set_vec_length(v0, ASIZE);
+    init_vector_rand(v0, ASIZE);
+    OMEGA = omega_calc(ASIZE * ASIZE);
+    clock_gettime(CLOCK_REALTIME, &time1);
+    SOR_basic(v0,iterations);
+    clock_gettime(CLOCK_REALTIME, &time2);
+    time_stamp[OPTION][i] = ts_diff(time1, time2);
+  }  
+
+//  printf("BASIC DONE\n");
+
+  OPTION++;
+  for(i = 0; i < ITERS; i++)
+  {
+    ASIZE = BASE+(i+1)*DELTA;
+    set_vec_length(v0, ASIZE);
+    init_vector_rand(v0, ASIZE);
+    OMEGA = omega_calc(ASIZE * ASIZE);
+    clock_gettime(CLOCK_REALTIME, &time1);
+    SOR_red_black(v0,iterations);
+    clock_gettime(CLOCK_REALTIME, &time2);
+    time_stamp[OPTION][i] = ts_diff(time1, time2);
+  } 
+
+  /////////////////////////////////////////
+  //
+  //  Write data
+  //
+  /////////////////////////////////////////
+
+  fp = fopen(filename,"w");
+  fprintf(fp, "Length, SOR Basic, SOR Red-Black");
+  for (i = 0; i < ITERS; i++) {
+    fprintf(fp, "\n%lu, ", BASE+(i+1)*DELTA);
+    for (j = 0; j < OPTIONS; j++) {
+      if (j != 0) fprintf(fp, ", ");
+      fprintf(fp, "%ld", (long int)((double)(CPG)*(double)(GIG * time_stamp[j][i].tv_sec + time_stamp[j][i].tv_nsec)));
+    }
+  }
+
+  fprintf(fp, "\n");
+
   return 0;
 }
 
-/////////////////////////////  Timing related  ///////////////////////////////
+//////////////////////////////  TIming related  ////////////////////////////////
 
 double ts_sec(struct timespec ts)
 {
@@ -326,23 +406,25 @@ void SOR_basic(vec_ptr v, int *iterations)
 
 void SOR_red_black(vec_ptr v, int *iterations)
 {
-	int      tid, i, j, row_offset, iters = 0;
+	int      tid, i, j, jstart, row_offset, iters = 0;
 	long int len   = get_vec_length(v);
 	long int len2  = len*len;
 	data_t	 *data = get_vec_start(v);
 	double	 change, mean_change;
+  int      odd_change = len % 2;
 
 	do{
 		mean_change = 0;
 		iters ++;
-		#pragma omp parallel num_threads((int) NO_THREADS) private(tid, i, j, row_offset, change)
+		#pragma omp parallel num_threads(2) private(tid, i, j, row_offset, change, jstart)
 		{
 			tid = omp_get_thread_num();
-			int row_offset = i * len;
-
+			
 			for(i = 1; i < len - 1; i++)
 			{
-				for(j = tid; j < len - 1; j += NO_THREADS)  //will create unbalanced loading :/
+        if(odd_change) jstart = (tid) ? 2 : 1; 
+        int row_offset = i * len;
+				for(j = jstart; j < len - 1; j += 2)  //will create unbalanced loading :/
 				{
 					change = data[row_offset+j] - .25 * (data[row_offset-len+j] +
 			            data[row_offset+len+j] +
