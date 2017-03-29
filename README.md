@@ -1,3 +1,5 @@
-# ec527_lab6
+# ec527_labs
 
 Intro to openMP
+
+Intro to CUDA
