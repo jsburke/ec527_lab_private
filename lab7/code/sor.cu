@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 	int LENGTH = 2048;
 
 	// Create and initialize a 2D array
-	float *arr, *d_arr;
+	float *arr, *d_arr, *d_res, *h_res;
 	int    size = LENGTH * LENGTH;
 
 	// initialize array on host
@@ -110,6 +110,8 @@ int main(int argc, char *argv[])
 	// invoke kernel, harcode OMEGA
 	SOR_kernel<<<dimGrid, dimBlock>>>(d_arr, LENGTH, 1.97);
 
+	// transfer back to CPU
+	CUDA_SAFE_CALL(cudaMemcpy(h_arr, d_arr, size, cudMemcpyDeviceToHost));
 
 	return 0;
 }
