@@ -24,18 +24,30 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 
 __global__ void SOR(float* arr, int len, float OMEGA)
 {
-	int row = blockDim.y * blockIdx.y + threadIdx.y;
-	int col = blockDim.x * blockIdx.x + threadIdx.x;
 
-	if((row+1 <= len-1) && (col+1 <= len-1))
+	// start with some bounds checking to be safe
+	if ((threadIdx.x >= 0) && (threadIdx.x < 15))
 	{
-		int q_idx = (row+1) * len + (col+1);
-		double change;
-		for(int i = 0; i < 2000; i++)
+		if ((threadIdx.y >= 0) && (threadIdx.y < 15))
 		{
-			change = arr[q_idx] - 0.25 * (arr[q_idx - len] + arr[q_idx + len] + arr[q_idx + 1] arr[q_idx - 1]);
-			__syncthreads();
-			arr[q_idx] -= change * OMEGA;
+			int   i_start, i_end, j_start, j_end;
+			float change = 0;
+
+			// set start point for threads
+			if (threadIdx.x == 0) i_start = 1;
+			else				  i_start = threadIdx.x * 128;
+
+			if (threadIdx.y == 0) j_start = 1;
+			else				  j_start = threadIdx.y * 128;
+
+			// set end point for threads
+			if (threadIdx.x == 15) i_end = 2046;
+			else                   i_end = threadIdx.x * 128 + 127;
+
+			if (threadIdx.y == 15) j_end = 2046;
+			else                   j_end = threadIdx.y * 128 + 127;
+
+			
 		}
 	}
 }
@@ -45,6 +57,7 @@ __global__ void SOR(float* arr, int len, float OMEGA)
 float* matrix_create(int len);
 void   matrix_init(float* mat, int len);
 
+/////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[])
@@ -81,6 +94,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////  MATRIX IMPLEMENTATIONS  ////////////////////////////////////////
 float float_rand(float min, float max)
 {
