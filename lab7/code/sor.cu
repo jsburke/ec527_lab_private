@@ -22,7 +22,7 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 	}
 }
 
-__global__ void SOR(float* arr, int len, float OMEGA)
+__global__ void SOR_kernel(float* arr, int len, float OMEGA)
 {
 
 	// start with some bounds checking to be safe
@@ -83,25 +83,14 @@ void   matrix_init(float* mat, int len);
 
 int main(int argc, char *argv[])
 {
-	int LENGTH;
-
-	if(argc != 2)
-	{
-		printf("\n\tProgram requires input length\n");
-		return 0;
-	}
-
-	LENGTH = strtol(argv[1], NULL, 10);
-
-	if(LENGTH <= 0)
-	{
-		printf("\n\tLENGTH must be greater than zero\n");
-		return 0;
-	}
+	int LENGTH = 2048;
 
 	// Create and initialize a 2D array
+	float *arr, *d_arr;
+	int    size = LENGTH * LENGTH;
 
-	float* arr = matrix_create(LENGTH);
+	// initialize array on host
+	arr = matrix_create(LENGTH);
 	if(!arr) return 0;
 
 	if(!matrix_init(arr, LENGTH))
@@ -110,6 +99,16 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
+	// send array to GPU
+	CUDA_SAFE_CALL(cudaMalloc((void**) &d_arr, size));
+	CUDA_SAFE_CALL(cudaMemcpy(d_arr, arr, size, cudaMemcpyHostToDevice));
+
+	// create single block of 16x16 threads
+	dim3 dimBlock(16, 16, 1);
+	dim3 dimGrid(1, 1, 1);
+
+	// invoke kernel, harcode OMEGA
+	SOR_kernel<<<dimGrid, dimBlock>>>(d_arr, LENGTH, 1.97);
 
 
 	return 0;
