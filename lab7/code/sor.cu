@@ -76,6 +76,7 @@ __global__ void SOR_kernel(float* arr, int len, float OMEGA)
 float* matrix_create(int len);
 int    matrix_init(float* mat, int len);
 int    matrix_zero(float* mat, int len);
+void   SOR_CPU(float* mat, int len, float OMEGA);
 
 /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
@@ -119,7 +120,7 @@ int main(int argc, char *argv[])
 
 	// CPU SOR and comparison
 
-	/*SOR_CPU(h_mat, LEN, OMEGA);
+	SOR_CPU(h_mat, LEN, OMEGA);
 
 	int i, num_elements;
 	num_elements = LEN * LEN;
@@ -132,7 +133,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-	*/
+	
 	// Free stuff
 
 	CUDA_SAFE_CALL(cudaFree(d_mat));
@@ -204,4 +205,25 @@ int   matrix_zero(float* mat, int len)
 	}
 	printf("\nFailed to zero matrix\n");
 	return 0;
+}
+
+void SOR_CPU(float* mat, int len, float OMEGA)
+{
+	int   i, j, k;
+	float change = 0;
+	int   q_idx;
+
+	for(k = 0; k < 2000; k++)
+	{
+		for(i = 0; i < len; i++)
+		{
+			for(j = 0; j < len; j++)
+			{
+				q_idx  = i * len + j;
+				change = mat[q_idx] - 0.25 * (mat[q_idx-len] + mat[q_idx+len] + mat[q_idx-1] +mat[q_idx+1]);
+
+				mat[q_idx] -= change * OMEGA;
+			}
+		}
+	}
 }
