@@ -23,50 +23,13 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 __global__ void SOR_kernel(float* arr, int len, float OMEGA)
 {
 
-	// start with some bounds checking to be safe
-	if ((threadIdx.x >= 0) && (threadIdx.x < 15))
+	//  First get the index
+	int idx = (threadIdx.x + (blockDim.x * blockIdx.x)) * len + (threadIdx.y + (blockDim.y * blockIdx.y));
+
+	// check if either index places the thread on a fixed element
+	if(((idx != 0) && (idx != 2047)) && ((idy != 0) && (idy != 2047)))
 	{
-		if ((threadIdx.y >= 0) && (threadIdx.y < 15))
-		{
-			
-			// variables needed for SOR
-			int   i_start, i_end, j_start, j_end;
-			float change = 0;
-
-			// set start point for threads
-			if (threadIdx.x == 0) i_start = 1;
-			else				  i_start = threadIdx.x * 128;
-
-			if (threadIdx.y == 0) j_start = 1;
-			else				  j_start = threadIdx.y * 128;
-
-			// set end point for threads
-			if (threadIdx.x == 15) i_end = 2046;
-			else                   i_end = threadIdx.x * 128 + 127;
-
-			if (threadIdx.y == 15) j_end = 2046;
-			else                   j_end = threadIdx.y * 128 + 127;
-
-			//  begin the SOR this portion is responsible for
-
-			int i,j,k;
-
-			for (k = 0; k < 2000; k++)  //2k iterations of SOR
-			{
-				for (i = i_start; i <= i_end; i++)
-				{
-					for (j = j_start; j <= j_end; j++)
-					{
-						change = arr[i*len+j] - 0.25 * (arr[(i-1)*len+j] + arr[(i+1)*len+j] + arr[i*len+j+1] + arr[i*len+j-1]);
-
-						__syncthreads();
-
-						arr[i*len+j] -= change * OMEGA;
-
-						__syncthreads();
-					}
-				}
-			}
-		}
+		float change = arr[idx] - 0.25 * (arr[idx - len] + arr[idx + len] + arr[idx + 1] + arr[idx - 1]);
+		arr[idx] -= change * OMEGA;
 	}
 }
