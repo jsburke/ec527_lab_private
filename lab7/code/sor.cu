@@ -82,17 +82,17 @@ int    matrix_zero(float* mat, int len);
 
 int main(int argc, char *argv[])
 {
-	int   LEN  = 2048;
-	int   SIZE = LEN * LEN;
+	int   LEN   = 2048;
+	int   size  = LEN * LEN;
 	float OMEGA = 1.97;
 
-	float* h_mat, d_mat, h_res;
+	float *h_mat, *d_mat, *h_res;
 
 	// set up matrix on host
 
 	h_mat = matrix_create(LEN);
 	if(!h_mat) return 0;
-	if(!matrix_init(h_mat, len)) return 0;
+	if(!matrix_init(h_mat, LEN)) return 0;
 
 	h_res = matrix_create(LEN);
 	if(!h_res) return 0;
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 	// set up device
 
 	d_mat = NULL;
-	CUDA_SAFE_CALL(cudaMalloc(void**)&d_mat, size);
+	CUDA_SAFE_CALL(cudaMalloc((void**)&d_mat, size));
 	CUDA_SAFE_CALL(cudaMemcpy(d_mat, h_mat, size, cudaMemcpyHostToDevice));
 
 	// Launch the kernel
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
 
 	// CPU SOR and comparison
 
-	SOR_CPU(h_mat, LEN, OMEGA);
+	/*SOR_CPU(h_mat, LEN, OMEGA);
 
 	int i, num_elements;
 	num_elements = LEN * LEN;
@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 	}
-
+	*/
 	// Free stuff
 
 	CUDA_SAFE_CALL(cudaFree(d_mat));
@@ -157,9 +157,10 @@ float float_rand(float min, float max)
 
 float* matrix_create(int len)
 {
+	float* arr;
 	if(len > 0)
 	{
-		float* arr = (float*) calloc(len*len, sizeof(float));
+		arr = (float*) calloc(len*len, sizeof(float));
 		if(!arr)
 		{
 			printf("\n\tFailed to allocate array\n");
