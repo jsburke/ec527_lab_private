@@ -1,10 +1,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <math.h>
+#include <time.h>
 
 #define MINVAL 0.00
 #define MAXVAL 10.0
 #define TOL    1e-5
+double CPS =   2.9e9;
 
 ////////////////////////////  CUDA RELATED  ////////////////////////////////////
 
@@ -20,7 +22,7 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 	}
 }
 
-__global__ void SOR_kernel(float* arr, int len, float OMEGA)
+__global__ void SOR_kernel(float* arr, float* res, int len, float OMEGA)
 {
 
 	// start with some bounds checking to be safe
@@ -67,6 +69,16 @@ __global__ void SOR_kernel(float* arr, int len, float OMEGA)
 					}
 				}
 			}
+
+			// copy to result
+			for(i = i_start; i <= i_end; i++)
+			{
+				for(j = j_start; j <=j_end; j++)
+				{
+					res[i * len + j] = arr[i * len +j];
+				}
+			}
+
 		}
 	}
 }
@@ -112,7 +124,7 @@ int main(int argc, char *argv[])
 	struct timespec time1, time2;
 	double h_time;
 
-	float *h_mat, *d_mat, *h_res;
+	float *h_mat, *d_mat, *h_res, *d_res;
 
 	// set up matrix on host
 
@@ -130,6 +142,7 @@ int main(int argc, char *argv[])
 
 	d_mat = NULL;
 	CUDA_SAFE_CALL(cudaMalloc((void**)&d_mat, size));
+	CUDA_SAFE_CALL(cudaMalloc((void**)$d_res, size));
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
 
@@ -141,20 +154,20 @@ int main(int argc, char *argv[])
 	dim3 dimBlock(16, 16, 1);
 	dim3 dimGrid(1, 1, 1);
 
-	SOR_kernel<<<dimGrid, dimBlock>>>(d_mat, LEN, OMEGA);
+	SOR_kernel<<<dimGrid, dimBlock>>>(d_mat, d_res LEN, OMEGA);
 
 	CUDA_SAFE_CALL(cudaPeekAtLastError());
 
 	// Transfer the results back to the host
 
-	CUDA_SAFE_CALL(cudaMemcpy(h_res, d_mat, size, cudaMemcpyDeviceToHost));
+	CUDA_SAFE_CALL(cudaMemcpy(h_res, d_res, size, cudaMemcpyDeviceToHost));
 
 	cudaEventRecord(stop,0);
 	cudaEventSynchronize(stop);
 	cudaEventElapsedTime(&d_time, start, stop);
-	printf("\nGPU time: %f (msec)\n", elapsed_gpu);
+	printf("\nGPU time: %f (msec)\n", d_time);
 	cudaEventDestroy(start);
-	cudaEventDestroy(stop)
+	cudaEventDestroy(stop);
 
 	// CPU SOR and comparison
 
@@ -334,7 +347,7 @@ double measure_cps()
     MCPS_RDTSC(tsc_end);
   }
 
-  total_time = ts_sec(ts_diff(cal_start, cal_end));
+  total_time = ts_ms(ts_diff(cal_start, cal_end));
   total_cycles = (double)(tsc_end.int64-tsc_start.int64);
   CPS = total_cycles / total_time;
   printf("z == %f, CPS == %g\n", z, CPS);
