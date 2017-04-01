@@ -4,12 +4,10 @@
 
 #define MINVAL 0.00
 #define MAXVAL 10.0
+#define TOL    1e-5
 
 ////////////////////////////  CUDA RELATED  ////////////////////////////////////
 
-#define 
-
-#define IMUL(a, b) __mul24(a, b)
 
 // Assertion to check for errors
 #define CUDA_SAFE_CALL(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -76,42 +74,74 @@ __global__ void SOR_kernel(float* arr, int len, float OMEGA)
 /////////////////////////////  MATRIX STUFF  ////////////////////////////////////////
 
 float* matrix_create(int len);
-void   matrix_init(float* mat, int len);
+int    matrix_init(float* mat, int len);
+int    matrix_zero(float* mat, int len);
 
 /////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[])
 {
-	int LENGTH = 2048;
+	int   LEN  = 2048;
+	int   SIZE = LEN * LEN;
+	float OMEGA = 1.97;
 
-	// Create and initialize a 2D array
-	float *arr, *d_arr, *d_res, *h_res;
-	int    size = LENGTH * LENGTH;
+	float* h_mat, d_mat, h_res;
 
-	// initialize array on host
-	arr = matrix_create(LENGTH);
-	if(!arr) return 0;
+	// set up matrix on host
 
-	if(!matrix_init(arr, LENGTH))
-	{
-		printf("\n\tFailed to initialize matrix\n");
-		return 0;
-	}
+	h_mat = matrix_create(LEN);
+	if(!h_mat) return 0;
+	if(!matrix_init(h_mat, len)) return 0;
 
-	// send array to GPU
-	CUDA_SAFE_CALL(cudaMalloc((void**) &d_arr, size));
-	CUDA_SAFE_CALL(cudaMemcpy(d_arr, arr, size, cudaMemcpyHostToDevice));
+	h_res = matrix_create(LEN);
+	if(!h_res) return 0;
+	if(!matrix_zero(h_res, LEN)) return 0;
 
-	// create single block of 16x16 threads
+	// set up device
+
+	d_mat = NULL;
+	CUDA_SAFE_CALL(cudaMalloc(void**)&d_mat, size);
+	CUDA_SAFE_CALL(cudaMemcpy(d_mat, h_mat, size, cudaMemcpyHostToDevice));
+
+	// Launch the kernel
+
 	dim3 dimBlock(16, 16, 1);
 	dim3 dimGrid(1, 1, 1);
 
-	// invoke kernel, harcode OMEGA
-	SOR_kernel<<<dimGrid, dimBlock>>>(d_arr, LENGTH, 1.97);
+	SOR_kernel<<<dimGrid, dimBlock>>>(d_mat, LEN, OMEGA);
 
-	// transfer back to CPU
-	CUDA_SAFE_CALL(cudaMemcpy(h_arr, d_arr, size, cudMemcpyDeviceToHost));
+	CUDA_SAFE_CALL(cudaPeekAtLastError());
+
+	// Transfer the results back to the host
+
+	CUDA_SAFE_CALL(cudaMemcpy(h_res, d_mat, size, cudaMemcpyDeviceToHost));
+
+	// CPU SOR and comparison
+
+	SOR_CPU(h_mat, LEN, OMEGA);
+
+	int i, num_elements;
+	num_elements = LEN * LEN;
+
+	for(i = 0; i < num_elements; i++)
+	{
+		if((h_mat - h_res) > (float) TOL)
+		{
+			printf("\nResult verification failed at element %d\n", i);
+			return 0;
+		}
+	}
+
+	// Free stuff
+
+	CUDA_SAFE_CALL(cudaFree(d_mat));
+
+	free(h_res);
+	free(h_mat);
+
+	printf("\nDone\n");
+	return 0;
 
 	return 0;
 }
@@ -154,5 +184,23 @@ int matrix_init(float* mat, int len)
 		}
 		return 1;
 	}
+	printf("\nError in initializing matrix\n");
+	return 0;
+}
+
+int   matrix_zero(float* mat, int len)
+{
+	int len_sq, i;
+
+	if(len > 0)
+	{
+		len_sq = len * len;
+		for(i = 0; i < len_sq; i++)
+		{
+			mat[i] = 0;
+		}
+		return 1;
+	}
+	printf("\nFailed to zero matrix\n");
 	return 0;
 }
