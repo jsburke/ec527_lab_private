@@ -101,6 +101,8 @@ int main(int argc, char **argv){
 	// Launch the kernel
 	//kernel_add<<<NUM_BLOCKS, NUM_THREADS_PER_BLOCK>>>(arrLen, d_x, d_y, d_result);
 
+
+	//for dim controlled stuff
 	dim3 dimBlock(16, 16, 1);
 	dim3 dimGrid(16, 1, 1);
 	kernel_add<<<dimGrid, dimBlock>>>(arrLen, d_x, d_y, d_result);
