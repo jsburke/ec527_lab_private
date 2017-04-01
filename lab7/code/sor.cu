@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 
 	d_mat = NULL;
 	CUDA_SAFE_CALL(cudaMalloc((void**)&d_mat, size));
-	CUDA_SAFE_CALL(cudaMalloc((void**)$d_res, size));
+	CUDA_SAFE_CALL(cudaMalloc((void**)&d_res, size));
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
 
@@ -154,9 +154,10 @@ int main(int argc, char *argv[])
 	dim3 dimBlock(16, 16, 1);
 	dim3 dimGrid(1, 1, 1);
 
-	SOR_kernel<<<dimGrid, dimBlock>>>(d_mat, d_res LEN, OMEGA);
+	SOR_kernel<<<dimGrid, dimBlock>>>(d_mat, d_res, LEN, OMEGA);
 
 	CUDA_SAFE_CALL(cudaPeekAtLastError());
+	CUDA_SAFE_CALL(cudaThreadSynchronize());
 
 	// Transfer the results back to the host
 
