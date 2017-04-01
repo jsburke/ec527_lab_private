@@ -113,7 +113,7 @@ double measure_cps(void);
 int main(int argc, char *argv[])
 {
 	int   LEN   = 2048;
-	int   size  = LEN * LEN;
+	int   size  = LEN * LEN * sizeof(float);
 	float OMEGA = 1.97;
 
 	// CUDA Timing
