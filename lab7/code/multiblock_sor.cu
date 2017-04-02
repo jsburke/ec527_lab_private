@@ -41,6 +41,7 @@ __global__ void SOR_kernel(float* arr, int len, float OMEGA)
 float* matrix_create(int len);
 int    matrix_init(float* mat, int len);
 int    matrix_zero(float* mat, int len);
+int    matrix_copy(float* src, float* dst, int len);
 void   SOR_CPU(float* mat, int len, float OMEGA);
 
 /////////////////  Time related  //////////////////////////////
@@ -65,6 +66,65 @@ double measure_cps(void);
 
 int main(int argc, char *argv[])
 {
+	int   LEN   = 2048;
+	int   size  = LEN * LEN * sizeof(float);
+	float OMEGA = 1.97;
+
+	// CUDA Timing
+	cudaEvent_t start, stop;
+	float d_time;
+
+	// CPU timing
+	struct timespec time1, time2;
+	doublt h_time;
+
+	float *h_mat, *d_mat, *h_res;
+
+	// set up on host
+
+	measure_cps();
+
+	h_mat = matrix_create(LEN);
+	if(!h_mat) return 0;
+	if(!matrix_init(h_mat, LEN)) return 0;
+
+	h_res = matrix_create(LEN);
+	if(!h_res) return 0;
+	if(!matrix_copy(h_mat, h_res, LEN)) return 0; // copy so we can loop memcpy with device easily
+
+	// set up device
+
+	d_mat = NULL;
+
+	CUDA_SAFE_CALL(cudaSetDevice(0));
+
+	CUDA_SAFE_CALL(cudaMalloc((void**)&d_mat, size));
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
+	dim3 dimBlock(16, 16, 1);
+	dim3 dimGrid(128, 128, 1);
+
+	// begin GPU Work
+
+	cudaEventRecord(start, 0);
+	for(int i = 0; i < 2000; i++)
+	{
+		CUDA_SAFE_CALL(cudaMemcpy(d_mat, h_res, size, cudaMemcpyHostToDevice));
+
+		SOR_kernel<<<dimGrid, dimBlock>>>(d_mat, LEN, OMEGA);
+		CUDA_SAFE_CALL(cudaPeekAtLastError());
+		CUDA_SAFE_CALL(cudaThreadSynchronize());
+
+		CUDA_SAFE_CALL(cudaMemcpy(h_res, d_res, size, cudaMemcpyDeviceToHost));
+	}
+
+	cudaEventRecord(stop,0);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&d_time, start, stop);
+	printf("\nGPU time: %f (msec)\n", d_time);
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
 
 	return 0;
 }
@@ -115,7 +175,7 @@ int matrix_init(float* mat, int len)
 	return 0;
 }
 
-int   matrix_zero(float* mat, int len)
+int matrix_zero(float* mat, int len)
 {
 	int len_sq, i;
 
@@ -129,6 +189,23 @@ int   matrix_zero(float* mat, int len)
 		return 1;
 	}
 	printf("\nFailed to zero matrix\n");
+	return 0;
+}
+
+int   matrix_copy(float* src, float* dst, int len)
+{
+	int len_sq, i;
+
+	if(len > 0)
+	{
+		len_sq = len * len;
+		for(i = 0; i < len_sq; i++)
+		{
+			dst[i] = src[i];
+		}
+		return 1;
+	}
+	printf("\nFailed to copy matrix\n");
 	return 0;
 }
 
