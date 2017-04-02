@@ -27,9 +27,11 @@ __global__ void SOR_kernel(float* arr, int len, float OMEGA)
 
 	//  First get the index
 	int idx = (threadIdx.x + (blockDim.x * blockIdx.x)) * len + (threadIdx.y + (blockDim.y * blockIdx.y));
+	int x =  threadIdx.x + blockDim.x * blockIdx.x;
+	int y =  threadIdx.y + blockDim.y * blockIdx.y;
 
 	// check if either index places the thread on a fixed element
-	if(((idx != 0) && (idx != 2047)) && ((idy != 0) && (idy != 2047)))
+	if(((x != 0) && (x != 2047)) && ((y != 0) && (y != 2047)))
 	{
 		float change = arr[idx] - 0.25 * (arr[idx - len] + arr[idx + len] + arr[idx + 1] + arr[idx - 1]);
 		arr[idx] -= change * OMEGA;
@@ -76,7 +78,7 @@ int main(int argc, char *argv[])
 
 	// CPU timing
 	struct timespec time1, time2;
-	doublt h_time;
+	double h_time;
 
 	float *h_mat, *d_mat, *h_res;
 
@@ -116,7 +118,7 @@ int main(int argc, char *argv[])
 		CUDA_SAFE_CALL(cudaPeekAtLastError());
 		CUDA_SAFE_CALL(cudaThreadSynchronize());
 
-		CUDA_SAFE_CALL(cudaMemcpy(h_res, d_res, size, cudaMemcpyDeviceToHost));
+		CUDA_SAFE_CALL(cudaMemcpy(h_res, d_mat, size, cudaMemcpyDeviceToHost));
 	}
 
 	cudaEventRecord(stop,0);
