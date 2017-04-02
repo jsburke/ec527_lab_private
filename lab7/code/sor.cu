@@ -179,7 +179,7 @@ int main(int argc, char *argv[])
 	SOR_CPU(h_mat, LEN, OMEGA);
 	clock_gettime(CLOCK_REALTIME, &time2);
 	h_time = ts_ms(ts_diff(time1, time2));
-	printf("\nCPU timeL %lf (msec)\n", h_time);
+	printf("\nCPU time %lf (msec)\n", h_time);
 
 	int i, num_elements;
 	num_elements = LEN * LEN;
@@ -201,8 +201,6 @@ int main(int argc, char *argv[])
 	free(h_mat);
 
 	printf("\nDone\n");
-	return 0;
-
 	return 0;
 }
 
