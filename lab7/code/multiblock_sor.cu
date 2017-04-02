@@ -126,6 +126,36 @@ int main(int argc, char *argv[])
 	cudaEventDestroy(start);
 	cudaEventDestroy(stop);
 
+	// CPU SOR and comparison
+
+	clock_gettime(CLOCK_REALTIME, &time1);
+	SOR_CPU(h_mat, LEN, OMEGA);
+	clock_gettime(CLOCK_REALTIME, &time2);
+	h_time = ts_ms(ts_diff(time1, time2));
+	printf("\nCPU time %lf (msec)\n", h_time);
+
+	int i, num_elements;
+	num_elements = LEN * LEN;
+
+	for(i = 0; i < num_elements; i++)
+	{
+		if((h_mat - h_res) > (float) TOL)
+		{
+			printf("\nResult verification failed at element %d\n", i);
+			return 0;
+		}
+	}
+	
+	// Free stuff
+
+	CUDA_SAFE_CALL(cudaFree(d_mat));
+
+	free(h_res);
+	free(h_mat);
+
+	printf("\nDone\n");
+	return 0;
+
 	return 0;
 }
 
