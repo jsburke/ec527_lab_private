@@ -65,6 +65,50 @@ double measure_cps(void);
 
 int main(int argc, char *argv[])
 {
+	if(argc != 2)
+	{
+		printf("\nPlease pass a length in.\n");
+		return 0;
+	}
+
+	LEN = strtol(argv[1], NULL, 10);
+
+	if(LEN <= 0)
+	{
+		printf("\nLength must be greater than zero\n");
+		return 0;
+	}
+
+	int size = LEN * LEN * sizeof(float);
+
+	// CUDA Timing
+	cudaEvent_t start_full, start_mmm, stop_full, stop_mmm;
+	float 		d_time_full, d_time_mmm;
+
+	// CPU Timing
+	struct timespec time1, time2;
+	double h_time;
+
+	// matrix set up
+	float *h_A, *h_B, *h_dst_gpu, *h_dst_cpu, *d_A, *d_B, *d_dst;
+
+	measure_cps();
+
+	h_A = matrix_create(LEN);
+	if(!h_A) return 0;
+	if(!matrix_init(h_A, LEN)) return 0;
+
+	h_B = matrix_create(LEN);
+	if(!h_B) return 0;
+	if(!matrix_init(h_B, LEN)) return 0;
+
+	h_dst_cpu = matrix_create(LEN);  //  cpu result
+	if(!h_dst_cpu) return 0;  
+	if(!matrix_zero(h_dst_cpu, LEN)) return 0;  
+
+	h_dst_gpu = matrix_create(LEN);  // gpu result
+	if(!h_dst_gpu) return 0;  
+	if(!matrix_zero(h_dst_gpu, LEN)) return 0;
 
 	return 0;
 }
