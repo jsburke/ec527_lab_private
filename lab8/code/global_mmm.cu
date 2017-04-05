@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 	struct timespec time1, time2;
 	double h_time;
 
-	// matrix set up
+	// CPU set up
 	float *h_A, *h_B, *h_dst_gpu, *h_dst_cpu, *d_A, *d_B, *d_dst;
 
 	measure_cps();
@@ -109,6 +109,23 @@ int main(int argc, char *argv[])
 	h_dst_gpu = matrix_create(LEN);  // gpu result
 	if(!h_dst_gpu) return 0;  
 	if(!matrix_zero(h_dst_gpu, LEN)) return 0;
+
+	//  GPU Set up
+
+	d_A   = NULL;
+	d_B   = NULL;
+	d_dst = NULL;
+
+	CUDA_SAFE_CALL(cudaSetDevice(0));
+
+	CUDA_SAFE_CALL(cudaMalloc((void**)&d_A, size));
+	CUDA_SAFE_CALL(cudaMalloc((void**)&d_B, size));
+	CUDA_SAFE_CALL(cudaMalloc((void**)&d_dst, size));
+	
+	cudaEventCreate(start_full);
+	cudaEventCreate(start_mmm);
+	cudaEventCreate(stop_full);
+	cudaEventCreate(stop_mmm);
 
 	return 0;
 }
