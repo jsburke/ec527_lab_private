@@ -3,10 +3,11 @@
 #include <math.h>
 #include <time.h>
 
-#define MINVAL 0.00
-#define MAXVAL 10.0
-#define TOL    1e-5
-double CPS =   2.9e9;
+#define MINVAL 		0.00
+#define MAXVAL 		10.0
+#define TOL    		1e-5
+#define NUM_THREADS 16
+double CPS =   		2.9e9;
 
 int LEN;		// to be defined via cmd args
 
@@ -42,6 +43,7 @@ float* matrix_create(int len);
 int    matrix_init(float* mat, int len);
 int    matrix_zero(float* mat, int len);
 int    matrix_copy(float* src, float* dst, int len);
+void   MMM_CPU(float* A, float* B, float* dst, int len);
 
 /////////////////  Time related  //////////////////////////////
 
@@ -80,6 +82,13 @@ int main(int argc, char *argv[])
 	}
 
 	int size = LEN * LEN * sizeof(float);
+	int NUM_BLOCKS = LEN / NUM_THREADS;
+
+	if(LEN % NUM_THREADS != 0)  // die if not a good fit
+	{
+		printf("\nOdd Numbr of blocks\n");
+		return 0;
+	}
 
 	// CUDA Timing
 	cudaEvent_t start_full, start_mmm, stop_full, stop_mmm;
@@ -126,6 +135,67 @@ int main(int argc, char *argv[])
 	cudaEventCreate(start_mmm);
 	cudaEventCreate(stop_full);
 	cudaEventCreate(stop_mmm);
+
+	// start the GPU calculations
+
+	dim3 dimBlock(NUM_THREADS, NUM_THREADS, 1);
+	dim3 dimGrid(NUM_BLOCKS, NUM_BLOCKS, 1);
+
+	cudaEventRecord(start_full,0);
+	CUDA_SAFE_CALL(cudaMemcpy(d_A, h_A, size, cudaMemcpyHostToDevice));
+	CUDA_SAFE_CALL(cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice));
+
+	cudaEventRecord(start_mmm,0);
+	MMM_kernel<<<dimGrid, dimBlock>>>(d_A, d_B, d_dst, LEN);
+	cudaEventRecord(stop_mmm,0);
+	cudaEventSynchronize(stop_mmm);
+
+	CUDA_SAFE_CALL(cudaPeekAtLastError());
+	CUDA_SAFE_CALL(cudaThreadSynchronize());
+
+	CUDA_SAFE_CALL(cudaMemcpy(h_dst_gpu, d_dst, size, cudaMemcpyDeviceToHost));
+
+	cudaEventRecord(stop_full, 0);
+	cudaEventSynchronize(stop_full);
+	cudaEventElapsedTime(&d_time_mmm, start_mmm, stop_mmm)
+	cudaEventElapsedTime(&d_time_full, start_full, stop_full);
+	printf("\nGPU MMM  Time: %f ms", d_time_mmm);
+	printf("\nGPU FUll Time: %f ms", d_time_full);
+	cudaEventDestroy(start_full);
+	cudaEventDestroy(stop_full);
+
+	//CPU calculation
+
+	clock_gettime(CLOCK_REALTIME, &time1);
+	MMM_CPU(h_A, h_B, h_dst_cpu, LEN);
+	clock_gettime(CLOCK_REALTIME, &time2);
+	h_time = ts_ms(ts_diff(time1, time2));
+	printf("\nCPU Time: %lf ms\n", h_time);
+
+	int i, num_elements;
+	num_elements = LEN * LEN;
+
+	for(i = 0; i < num_elements; i++)
+	{
+		if((h_dst_cpu - h_dst_gpu) > (float) TOL)
+		{
+			printf("\nResult verification issue at element %d | CPU: %f | GPU: %f\n", i, h_dst_cpu, h_dst_gpu);
+			return 0;
+		}
+	}
+
+	// Free stuff
+
+	CUDA_SAFE_CALL(cudaFree(d_A));
+	CUDA_SAFE_CALL(cudaFree(d_B));
+	CUDA_SAFE_CALL(cudaFree(d_dst));
+
+	free(h_A);
+	free(h_B);
+	free(h_dst_gpu);
+	free(h_dst_cpu);
+
+	printf("\nDone\n");
 
 	return 0;
 }
@@ -205,6 +275,20 @@ int   matrix_copy(float* src, float* dst, int len)
 	}
 	printf("\nFailed to copy matrix\n");
 	return 0;
+}
+
+void	MMM_CPU(float* A, float* B, float* dst, int len)
+{
+	int i, j, k;
+
+	for (i = 0; i < len; i++)
+	{
+		for(j = 0; j < len; j++)
+		{
+			for(k = 0; k < len; k++)
+				dst[i * len + j] += A[i * len + k] * B[k * len + j];
+		}
+	}
 }
 
 /////////////////////////////  Timing related  ///////////////////////////////
