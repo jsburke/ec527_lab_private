@@ -25,16 +25,41 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 	}
 }
 
+
+//to do:
+//  
+//        Define TILE_WIDTH for this
+//  	  Think that's it
+//
+//  	  Unroll for final push
 __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 {
-	const int row = threadIdx.x + blockDim.x * blockIdx.x;
-	const int col = threadIdx.y + blockDim.y * blockIdx.y;
+	__shared__ float Ms [TILE_WIDTH][TILE_WIDTH];
+	__shared__ float Ns [TILE_WIDTH][TILE_WIDTH];
 
-	if(((row >= 0) && (row < len)) && ((col >= 0) && (col < len)))
+	const int bx, by, tx, ty, row, col;
+
+	bx = blockIdx.x;
+	by = blockIdx.y;
+	tx = threadIdx.x;
+	ty = threadIdx.y;
+
+	row = by * TILE_WIDTH + ty;
+	col = bx * TILE_WIDTH + tx;
+
+	float partial = 0;
+
+	for(int k = 0; k < len/TILE_WIDTH; k++)
 	{
-		int k;
-		for(k = 0; k < len; k++) dst[row * len + col] = A[row * len + k] * B[k * len + col];
+		Ms[ty][tx] = A[row *  len + (k * TILE_WIDTH + tx)];
+		Ns[ty][tx] = B[col + (k * TILE_WIDTH + ty) * len];
+		__syncthreads();
+
+		for(int r = 0; r < TILE_WIDTH; r++)
+			partial += Ms[ty][k] * Ns[k][tx];
+		__syncthreads();
 	}
+	dst[row * len + col] = partial;
 }
 
 //////////////////////////////  MATRIX  /////////////////////////////////////////
