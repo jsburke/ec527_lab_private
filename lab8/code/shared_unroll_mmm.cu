@@ -26,12 +26,7 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 }
 
 
-//to do:
-//  
-//        Define TILE_WIDTH for this
-//  	  Think that's it
-//
-//  	  Unroll for final push
+//  	  Unroll factor is 4
 __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 {
 	__shared__ float Ms [NUM_THREADS][NUM_THREADS];
@@ -49,7 +44,25 @@ __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 
 	float partial = 0;
 
-	for(int k = 0; k < len/NUM_THREADS; k++)
+	for(int k = 0; k < len/NUM_THREADS; k+=4)
+	{
+		Ms[ty][tx] = A[row *  len + (k * NUM_THREADS + tx)];
+		Ms[ty][tx] = A[row *  len + ((k+1) * NUM_THREADS + tx)];
+		Ms[ty][tx] = A[row *  len + ((k+2) * NUM_THREADS + tx)];
+		Ms[ty][tx] = A[row *  len + ((k+3) * NUM_THREADS + tx)];
+
+		Ns[ty][tx] = B[col + (k * NUM_THREADS + ty) * len];
+		Ns[ty][tx] = B[col + ((k+1) * NUM_THREADS + ty) * len];
+		Ns[ty][tx] = B[col + ((k+2) * NUM_THREADS + ty) * len];
+		Ns[ty][tx] = B[col + ((k+3) * NUM_THREADS + ty) * len];
+		__syncthreads();
+
+		for(int r = 0; r < NUM_THREADS; r++)
+			partial += Ms[ty][k] * Ns[k][tx];
+		__syncthreads();
+	}
+	
+	for(;k < len/NUM_THREADS; k++)  //this loop is the sweeper
 	{
 		Ms[ty][tx] = A[row *  len + (k * NUM_THREADS + tx)];
 		Ns[ty][tx] = B[col + (k * NUM_THREADS + ty) * len];
@@ -59,6 +72,7 @@ __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 			partial += Ms[ty][k] * Ns[k][tx];
 		__syncthreads();
 	}
+
 	dst[row * len + col] = partial;
 }
 
