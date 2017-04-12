@@ -34,8 +34,8 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 //  	  Unroll for final push
 __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 {
-	__shared__ float Ms [TILE_WIDTH][TILE_WIDTH];
-	__shared__ float Ns [TILE_WIDTH][TILE_WIDTH];
+	__shared__ float Ms [NUM_THREADS][NUM_THREADS];
+	__shared__ float Ns [NUM_THREADS][NUM_THREADS];
 
 	const int bx, by, tx, ty, row, col;
 
@@ -44,18 +44,18 @@ __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 	tx = threadIdx.x;
 	ty = threadIdx.y;
 
-	row = by * TILE_WIDTH + ty;
-	col = bx * TILE_WIDTH + tx;
+	row = by * NUM_THREADS + ty;
+	col = bx * NUM_THREADS + tx;
 
 	float partial = 0;
 
-	for(int k = 0; k < len/TILE_WIDTH; k++)
+	for(int k = 0; k < len/NUM_THREADS; k++)
 	{
-		Ms[ty][tx] = A[row *  len + (k * TILE_WIDTH + tx)];
-		Ns[ty][tx] = B[col + (k * TILE_WIDTH + ty) * len];
+		Ms[ty][tx] = A[row *  len + (k * NUM_THREADS + tx)];
+		Ns[ty][tx] = B[col + (k * NUM_THREADS + ty) * len];
 		__syncthreads();
 
-		for(int r = 0; r < TILE_WIDTH; r++)
+		for(int r = 0; r < NUM_THREADS; r++)
 			partial += Ms[ty][k] * Ns[k][tx];
 		__syncthreads();
 	}
