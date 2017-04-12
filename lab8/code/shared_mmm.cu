@@ -26,12 +26,6 @@ inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
 }
 
 
-//to do:
-//  
-//        Define TILE_WIDTH for this
-//  	  Think that's it
-//
-//  	  Unroll for final push
 __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 {
 	__shared__ float Ms [NUM_THREADS][NUM_THREADS];
