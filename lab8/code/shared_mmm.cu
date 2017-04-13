@@ -50,7 +50,7 @@ __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 		__syncthreads();
 
 		for(int r = 0; r < NUM_THREADS; r++)
-			partial += Ms[ty][k] * Ns[k][tx];
+			partial += Ms[ty][r] * Ns[r][tx];
 		__syncthreads();
 	}
 	dst[row * len + col] = partial;
