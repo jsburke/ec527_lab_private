@@ -318,7 +318,16 @@ int   matrix_copy(float* src, float* dst, int len)
 
 void	MMM_CPU(float* A, float* B, float* dst, int len)
 {
-	
+	int i, j, k;
+
+	for (i = 0; i < len; i++)
+	{
+		for(j = 0; j < len; j++)
+		{
+			for(k = 0; k < len; k++)
+				dst[i * len + j] += A[i * len + k] * B[k * len + j];
+		}
+	}
 }
 
 /////////////////////////////  Timing related  ///////////////////////////////
