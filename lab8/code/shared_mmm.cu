@@ -150,10 +150,10 @@ int main(int argc, char *argv[])
 	CUDA_SAFE_CALL(cudaMalloc((void**)&d_B, size));
 	CUDA_SAFE_CALL(cudaMalloc((void**)&d_dst, size));
 	
-	cudaEventCreate(start_full);
-	cudaEventCreate(start_mmm);
-	cudaEventCreate(stop_full);
-	cudaEventCreate(stop_mmm);
+	cudaEventCreate(&start_full);
+	cudaEventCreate(&start_mmm);
+	cudaEventCreate(&stop_full);
+	cudaEventCreate(&stop_mmm);
 
 	// start the GPU calculations
 
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 
 	cudaEventRecord(stop_full, 0);
 	cudaEventSynchronize(stop_full);
-	cudaEventElapsedTime(&d_time_mmm, start_mmm, stop_mmm)
+	cudaEventElapsedTime(&d_time_mmm, start_mmm, stop_mmm);
 	cudaEventElapsedTime(&d_time_full, start_full, stop_full);
 	printf("\nGPU MMM  Time: %f ms", d_time_mmm);
 	printf("\nGPU FUll Time: %f ms", d_time_full);
