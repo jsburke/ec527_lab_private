@@ -44,7 +44,9 @@ __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 
 	float partial = 0;
 
-	for(int k = 0; k < len/NUM_THREADS; k+=4)
+	int k;
+
+	for(k = 0; k < len/NUM_THREADS; k+=4)
 	{
 		Ms[ty][tx] = A[row *  len + (k * NUM_THREADS + tx)];
 		Ms[ty][tx] = A[row *  len + ((k+1) * NUM_THREADS + tx)];
