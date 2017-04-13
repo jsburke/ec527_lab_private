@@ -31,7 +31,7 @@ __global__ void MMM_kernel(float* A, float* B, float* dst, int len)
 	__shared__ float Ms [NUM_THREADS][NUM_THREADS];
 	__shared__ float Ns [NUM_THREADS][NUM_THREADS];
 
-	const int bx, by, tx, ty, row, col;
+	int bx, by, tx, ty, row, col;
 
 	bx = blockIdx.x;
 	by = blockIdx.y;
