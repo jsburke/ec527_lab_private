@@ -1,0 +1,37 @@
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage[top=1in, bottom=1.1in, left=1.1in, right=1.1in]{geometry}
+
+\author{John Burke}
+        
+\title{EC527 Lab 8: Matrix Multiply on GPU}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Comparison of Methods Implemented}
+
+\begin{tabular}[h!]{|l|cc|}
+\hline
+Input Length		&  1k    & 2k      \\ \hline
+CPU 				& 13,727 & 249,577 \\ \hline
+GPU Global			& 		 &         \\ 
+Kernel				& 228.9	 & 2148.9  \\
+Kernel and Transfer	& 233.0	 & 2160.5  \\ \hline
+GPU Shared			& 		 &         \\ 
+Kernel				& 11.9	 & 95.3    \\
+Kernel and Transfer	& 16.5	 & 109.5  \\ \hline
+GPU Unrolled (by 4)	& 		 &         \\ 
+Kernel				& 3.1	 & 24.6    \\
+Kernel and Transfer	& 7.3	 & 38.1  \\ \hline
+
+\end{tabular}
+
+\paragraph{Short Analysis of Results}
+The above table lists the time in \texttt{ms} for the execution of the various implementations of matrix multiply.  As can be seen, GPU implementations over both sizes, one's that both fit and don't fit in the CPU cache systems, are advantageous to the CPU designs.  Taking further advantage of the GPU by making smart use of shared memory and getting more work per threads in a 16 by 16 block to better fill a given warp also improve the time it takes to complete the matrix multiplication.
+
+\paragraph{Notes on Code Included}
+All the code can be found in the code directory included.  Each implementation of the GPU Matrix Multiply is in a different source file that also compares it against CPU baseline code.  The global memory only code is in \texttt{global\_mmm.cu}, the one that makes use of shared memory is in \texttt{shared\_mmm.cu}, and finally the one that makes use of shared memory and unrolling is in \texttt{shared\_unroll\_mmm.cu}.
+
+\end{document}
